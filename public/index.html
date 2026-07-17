@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webfilelode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Webfilelode</h1>
+      <p class="subtitle">อัปโหลดและดาวน์โหลดไฟล์ของคุณ</p>
+    </header>
+
+    <section class="upload-section">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p>ลากไฟล์มาวางที่นี่<br>หรือ <span class="browse-link">เลือกไฟล์</span></p>
+          <input type="file" id="fileInput" multiple hidden>
+        </div>
+      </div>
+      <div class="progress-container" id="progressContainer" hidden>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="progress-text" id="progressText">0%</span>
+      </div>
+    </section>
+
+    <section class="files-section">
+      <div class="files-header">
+        <h2>ไฟล์ทั้งหมด</h2>
+        <span class="file-count" id="fileCount">0 ไฟล์</span>
+      </div>
+      <div class="files-list" id="filesList">
+        <div class="empty-state" id="emptyState">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+          <p>ยังไม่มีไฟล์ อัปโหลดไฟล์แรกของคุณเลย!</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
