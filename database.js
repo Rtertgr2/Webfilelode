@@ -1,4 +1,4 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,48 +12,81 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const db = new Database(path.join(dataDir, 'files.db'));
+const dbPath = path.join(dataDir, 'files.db');
+let db = null;
 
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+function saveDb() {
+  const data = db.export();
+  fs.writeFileSync(dbPath, Buffer.from(data));
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS files (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    mimetype TEXT NOT NULL,
-    size INTEGER NOT NULL,
-    upload_date DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+async function initDb() {
+  const SQL = await initSqlJs();
 
-module.exports = {
-  getAllFiles() {
-    return db.prepare('SELECT * FROM files ORDER BY upload_date DESC').all();
-  },
-
-  getFileById(id) {
-    return db.prepare('SELECT * FROM files WHERE id = ?').get(id);
-  },
-
-  insertFile({ filename, original_name, mimetype, size }) {
-    const stmt = db.prepare(
-      'INSERT INTO files (filename, original_name, mimetype, size) VALUES (?, ?, ?, ?)'
-    );
-    const result = stmt.run(filename, original_name, mimetype, size);
-    return result.lastInsertRowid;
-  },
-
-  deleteFile(id) {
-    const file = db.prepare('SELECT * FROM files WHERE id = ?').get(id);
-    if (file) {
-      const filePath = path.join(uploadsDir, file.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-      db.prepare('DELETE FROM files WHERE id = ?').run(id);
-    }
-    return file;
+  if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(buffer);
+  } else {
+    db = new SQL.Database();
   }
-};
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mimetype TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      upload_date DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  saveDb();
+}
+
+function getAllFiles() {
+  const results = db.exec('SELECT * FROM files ORDER BY upload_date DESC');
+  if (results.length === 0) return [];
+  const cols = results[0].columns;
+  return results[0].values.map(row => {
+    const obj = {};
+    cols.forEach((col, i) => { obj[col] = row[i]; });
+    return obj;
+  });
+}
+
+function getFileById(id) {
+  const stmt = db.prepare('SELECT * FROM files WHERE id = ?');
+  stmt.bind([id]);
+  if (stmt.step()) {
+    const row = stmt.getAsObject();
+    stmt.free();
+    return row;
+  }
+  stmt.free();
+  return undefined;
+}
+
+function insertFile({ filename, original_name, mimetype, size }) {
+  db.run(
+    'INSERT INTO files (filename, original_name, mimetype, size) VALUES (?, ?, ?, ?)',
+    [filename, original_name, mimetype, size]
+  );
+  const id = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+  saveDb();
+  return id;
+}
+
+function deleteFile(id) {
+  const file = getFileById(id);
+  if (file) {
+    const filePath = path.join(uploadsDir, file.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    db.run('DELETE FROM files WHERE id = ?', [id]);
+    saveDb();
+  }
+  return file;
+}
+
+module.exports = { initDb, getAllFiles, getFileById, insertFile, deleteFile };

@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('./database');
+const { initDb, getAllFiles, getFileById, insertFile, deleteFile } = require('./database');
 
 function fixEncoding(str) {
   try {
@@ -41,7 +41,7 @@ app.use(express.json());
 
 app.get('/api/files', (req, res) => {
   try {
-    const files = db.getAllFiles();
+    const files = getAllFiles();
     res.json(files);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -54,14 +54,14 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   }
 
   try {
-    const id = db.insertFile({
+    const id = insertFile({
       filename: req.file.filename,
       original_name: fixEncoding(req.file.originalname),
       mimetype: req.file.mimetype,
       size: req.file.size
     });
 
-    const file = db.getFileById(id);
+    const file = getFileById(id);
     res.status(201).json(file);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -70,7 +70,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 app.get('/api/files/:id/download', (req, res) => {
   try {
-    const file = db.getFileById(req.params.id);
+    const file = getFileById(Number(req.params.id));
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
@@ -90,7 +90,7 @@ app.get('/api/files/:id/download', (req, res) => {
 
 app.delete('/api/files/:id', (req, res) => {
   try {
-    const file = db.deleteFile(req.params.id);
+    const file = deleteFile(Number(req.params.id));
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
@@ -100,6 +100,11 @@ app.delete('/api/files/:id', (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+initDb().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
 });
